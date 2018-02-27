@@ -7,6 +7,7 @@
 package com.offbytwo.jenkins;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,7 @@ import com.offbytwo.jenkins.model.Queue;
 import com.offbytwo.jenkins.model.QueueItem;
 import com.offbytwo.jenkins.model.QueueReference;
 import com.offbytwo.jenkins.model.View;
+
 import java.io.Closeable;
 
 /**
@@ -61,7 +63,7 @@ public class JenkinsServer implements Closeable {
      * Create a new Jenkins server reference given only the server address
      *
      * @param serverUri address of jenkins server (ex.
-     *            http://localhost:8080/jenkins)
+     *                  http://localhost:8080/jenkins)
      */
     public JenkinsServer(URI serverUri) {
         this(new JenkinsHttpClient(serverUri));
@@ -70,9 +72,9 @@ public class JenkinsServer implements Closeable {
     /**
      * Create a new Jenkins server reference given the address and credentials
      *
-     * @param serverUri address of jenkins server (ex.
-     *            http://localhost:8080/jenkins)
-     * @param username username to use when connecting
+     * @param serverUri       address of jenkins server (ex.
+     *                        http://localhost:8080/jenkins)
+     * @param username        username to use when connecting
      * @param passwordOrToken password (not recommended) or token (recommended)
      */
     public JenkinsServer(URI serverUri, String username, String passwordOrToken) {
@@ -97,7 +99,7 @@ public class JenkinsServer implements Closeable {
         try {
             client.get("/");
             return true;
-        } catch (IOException e) {
+        } catch (UncheckedIOException e) {
             LOGGER.debug("isRunning()", e);
             return false;
         }
@@ -121,9 +123,8 @@ public class JenkinsServer implements Closeable {
      * Get a list of all the defined jobs on the server (at the summary level)
      *
      * @return list of defined jobs (summary level, for details @see Job#details
-     * @throws IOException in case of an error.
      */
-    public Map<String, Job> getJobs() throws IOException {
+    public Map<String, Job> getJobs() {
         return getJobs(null, null);
     }
 
@@ -132,9 +133,8 @@ public class JenkinsServer implements Closeable {
      *
      * @param folder {@link FolderJob}
      * @return list of defined jobs (summary level, for details @see Job#details
-     * @throws IOException in case of an error.
      */
-    public Map<String, Job> getJobs(FolderJob folder) throws IOException {
+    public Map<String, Job> getJobs(FolderJob folder) {
         return getJobs(folder, null);
     }
 
@@ -144,22 +144,20 @@ public class JenkinsServer implements Closeable {
      *
      * @param view The view to get jobs from.
      * @return list of defined jobs (view level, for details @see Job#details
-     * @throws IOException in case of an error.
      */
-    public Map<String, Job> getJobs(String view) throws IOException {
+    public Map<String, Job> getJobs(String view) {
         return getJobs(null, view);
     }
 
     /**
      * Get a list of all the defined jobs on the server (at the specified view
      * level and in the specified folder)
-     * 
+     *
      * @param folder {@link FolderJob}
-     * @param view The view to use.
+     * @param view   The view to use.
      * @return list of defined jobs (view level, for details @see Job#details
-     * @throws IOException in case of an error.
      */
-    public Map<String, Job> getJobs(FolderJob folder, String view) throws IOException {
+    public Map<String, Job> getJobs(FolderJob folder, String view) {
         String path = UrlUtils.toBaseUrl(folder);
         Class<? extends MainView> viewClass = MainView.class;
         if (view != null) {
@@ -189,7 +187,7 @@ public class JenkinsServer implements Closeable {
     /**
      * Get a list of all the defined views on the server (at the summary level
      * and in the given folder)
-     * 
+     *
      * @param folder {@link FolderJob}
      * @return list of defined views
      * @throws IOException in case of an error.
@@ -229,39 +227,30 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Get a single view object from the given folder
-     * 
+     *
      * @param folder The name of the folder.
-     * @param name name of the view in Jenkins
+     * @param name   name of the view in Jenkins
      * @return the view object
      * @throws IOException in case of an error.
      */
     public View getView(FolderJob folder, String name) throws IOException {
-        try {
-            View resultView = client.get(UrlUtils.toViewBaseUrl(folder, name) + "/", View.class);
-            resultView.setClient(client);
+        View resultView = client.get(UrlUtils.toViewBaseUrl(folder, name) + "/", View.class);
+        resultView.setClient(client);
 
-            // TODO: Think about the following? Does there exists a simpler/more
-            // elegant method?
-            for (Job job : resultView.getJobs()) {
-                job.setClient(client);
-            }
-            for (View view : resultView.getViews()) {
-                view.setClient(client);
-            }
-            return resultView;
-        } catch (HttpResponseException e) {
-            LOGGER.debug("getView(folder={}, name={}) status={}", folder, name, e.getStatusCode());
-            if (e.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-                // TODO: Think hard about this.
-                return null;
-            }
-            throw e;
+        // TODO: Think about the following? Does there exists a simpler/more
+        // elegant method?
+        for (Job job : resultView.getJobs()) {
+            job.setClient(client);
         }
+        for (View view : resultView.getViews()) {
+            view.setClient(client);
+        }
+        return resultView;
     }
 
     /**
      * Get a single Job from the server.
-     * 
+     *
      * @param jobName name of the job to get details of.
      * @return A single Job, null if not present
      * @throws IOException in case of an error.
@@ -272,73 +261,45 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Get a single Job from the given folder.
-     * 
-     * @param folder {@link FolderJob}
+     *
+     * @param folder  {@link FolderJob}
      * @param jobName name of the job to get details of.
      * @return A single Job, null if not present
-     * @throws IOException in case of an error.
      */
-    public JobWithDetails getJob(FolderJob folder, String jobName) throws IOException {
-        try {
-            JobWithDetails job = client.get(UrlUtils.toJobBaseUrl(folder, jobName), JobWithDetails.class);
-            job.setClient(client);
+    public JobWithDetails getJob(FolderJob folder, String jobName) {
+        JobWithDetails job = client.get(UrlUtils.toJobBaseUrl(folder, jobName), JobWithDetails.class);
+        job.setClient(client);
 
-            return job;
-        } catch (HttpResponseException e) {
-            LOGGER.debug("getJob(folder={}, jobName={}) status={}", folder, jobName, e.getStatusCode());
-            if (e.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-                // TODO: Think hard about this.
-                return null;
-            }
-            throw e;
-        }
+        return job;
     }
 
     public MavenJobWithDetails getMavenJob(String jobName) throws IOException {
         return getMavenJob(null, UrlUtils.toFullJobPath(jobName));
     }
 
-    public MavenJobWithDetails getMavenJob(FolderJob folder, String jobName) throws IOException {
-        try {
-            MavenJobWithDetails job = client.get(UrlUtils.toJobBaseUrl(folder, jobName), MavenJobWithDetails.class);
-            job.setClient(client);
+    public MavenJobWithDetails getMavenJob(FolderJob folder, String jobName) {
+        MavenJobWithDetails job = client.get(UrlUtils.toJobBaseUrl(folder, jobName), MavenJobWithDetails.class);
+        job.setClient(client);
 
-            return job;
-        } catch (HttpResponseException e) {
-            LOGGER.debug("getMavenJob(jobName={}) status={}", jobName, e.getStatusCode());
-            if (e.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-                return null;
-            }
-            throw e;
-        }
+        return job;
     }
 
     public Optional<FolderJob> getFolderJob(Job job) throws IOException {
-        try {
-            FolderJob folder = client.get(job.getUrl(), FolderJob.class);
-            if (!folder.isFolder()) {
-                return Optional.absent();
-            }
-            folder.setClient(client);
-
-            return Optional.of(folder);
-        } catch (HttpResponseException e) {
-            LOGGER.debug("getForlderJob(job={}) status={}", job, e.getStatusCode());
-            if (e.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-                // TODO: Check if this is a good idea ? What about
-                // Optional.absent() ?
-                return null;
-            }
-            throw e;
+        FolderJob folder = client.get(job.getUrl(), FolderJob.class);
+        if (!folder.isFolder()) {
+            return Optional.absent();
         }
+        folder.setClient(client);
+
+        return Optional.of(folder);
     }
 
     /**
      * Create a job on the server using the provided xml
-     * 
+     *
      * @param jobName name of the job to be created.
-     * @param jobXml the <code>config.xml</code> which should be used to create
-     *            the job.
+     * @param jobXml  the <code>config.xml</code> which should be used to create
+     *                the job.
      * @throws IOException in case of an error.
      */
     public void createJob(String jobName, String jobXml) throws IOException {
@@ -347,12 +308,12 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Create a job on the server using the provided xml
-     * 
-     * @param jobName name of the job to be created.
-     * @param jobXml the <code>config.xml</code> which should be used to create
-     *            the job.
+     *
+     * @param jobName   name of the job to be created.
+     * @param jobXml    the <code>config.xml</code> which should be used to create
+     *                  the job.
      * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     *                  <code>false</code> otherwise.
      * @throws IOException in case of an error.
      */
     public void createJob(String jobName, String jobXml, Boolean crumbFlag) throws IOException {
@@ -363,10 +324,10 @@ public class JenkinsServer implements Closeable {
      * Create a job on the server using the provided xml and in the provided
      * folder
      *
-     * @param folder {@link FolderJob}
+     * @param folder  {@link FolderJob}
      * @param jobName name of the job to be created.
-     * @param jobXml the <code>config.xml</code> which should be used to create
-     *            the job.
+     * @param jobXml  the <code>config.xml</code> which should be used to create
+     *                the job.
      * @throws IOException in case of an error.
      */
     public void createJob(FolderJob folder, String jobName, String jobXml) throws IOException {
@@ -377,12 +338,12 @@ public class JenkinsServer implements Closeable {
      * Create a job on the server using the provided xml and in the provided
      * folder
      *
-     * @param folder {@link FolderJob}
-     * @param jobName name of the job to be created.
-     * @param jobXml the <code>config.xml</code> which should be used to create
-     *            the job.
+     * @param folder    {@link FolderJob}
+     * @param jobName   name of the job to be created.
+     * @param jobXml    the <code>config.xml</code> which should be used to create
+     *                  the job.
      * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     *                  <code>false</code> otherwise.
      * @throws IOException in case of an error.
      */
     public void createJob(FolderJob folder, String jobName, String jobXml, Boolean crumbFlag) throws IOException {
@@ -391,9 +352,9 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Create a view on the server using the provided xml
-     * 
+     *
      * @param viewName name of the view to be created.
-     * @param viewXml The configuration for the view.
+     * @param viewXml  The configuration for the view.
      * @throws IOException in case of an error.
      */
     public void createView(String viewName, String viewXml) throws IOException {
@@ -403,10 +364,10 @@ public class JenkinsServer implements Closeable {
     /**
      * Create a view on the server using the provided xml.
      *
-     * @param viewName name of the view to be created.
-     * @param viewXml The configuration for the view.
+     * @param viewName  name of the view to be created.
+     * @param viewXml   The configuration for the view.
      * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     *                  <code>false</code> otherwise.
      * @throws IOException in case of an error.
      */
     public void createView(String viewName, String viewXml, Boolean crumbFlag) throws IOException {
@@ -416,10 +377,10 @@ public class JenkinsServer implements Closeable {
     /**
      * Create a view on the server using the provided xml and in the provided
      * folder.
-     * 
-     * @param folder {@link FolderJob}
+     *
+     * @param folder   {@link FolderJob}
      * @param viewName name of the view to be created.
-     * @param viewXml The configuration for the view.
+     * @param viewXml  The configuration for the view.
      * @throws IOException in case of an error.
      */
     public void createView(FolderJob folder, String viewName, String viewXml) throws IOException {
@@ -429,12 +390,12 @@ public class JenkinsServer implements Closeable {
     /**
      * Create a view on the server using the provided xml and in the provided
      * folder.
-     * 
-     * @param folder the folder.
-     * @param viewName the view name.
-     * @param viewXml the view xml.
+     *
+     * @param folder    the folder.
+     * @param viewName  the view name.
+     * @param viewXml   the view xml.
      * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     *                  <code>false</code> otherwise.
      * @throws IOException in case of an error.
      */
     public void createView(FolderJob folder, String viewName, String viewXml, Boolean crumbFlag) throws IOException {
@@ -444,7 +405,7 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Create a folder on the server (in the root)
-     * 
+     *
      * @param folderName name of the folder.
      * @throws IOException in case of an error.
      */
@@ -454,10 +415,10 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Create a folder on the server (in the root)
-     * 
+     *
      * @param folderName name of the folder.
-     * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     * @param crumbFlag  <code>true</code> to add <b>crumbIssuer</b>
+     *                   <code>false</code> otherwise.
      * @throws IOException in case of an error.
      */
     public void createFolder(String folderName, Boolean crumbFlag) throws IOException {
@@ -467,7 +428,7 @@ public class JenkinsServer implements Closeable {
     /**
      * Create a job on the server (in the given folder)
      *
-     * @param folder {@link FolderJob}
+     * @param folder  {@link FolderJob}
      * @param jobName name of the job.
      * @throws IOException in case of an error.
      */
@@ -478,10 +439,10 @@ public class JenkinsServer implements Closeable {
     /**
      * Create a job on the server (in the given folder)
      *
-     * @param folder {@link FolderJob}
-     * @param jobName name of the job.
+     * @param folder    {@link FolderJob}
+     * @param jobName   name of the job.
      * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     *                  <code>false</code> otherwise.
      * @throws IOException in case of an error.
      */
     public void createFolder(FolderJob folder, String jobName, Boolean crumbFlag) throws IOException {
@@ -505,9 +466,9 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Get the xml description of an existing job.
-     * 
+     *
      * @param jobName name of the job.
-     * @param folder {@link FolderJob}
+     * @param folder  {@link FolderJob}
      * @return the new job object
      * @throws IOException in case of an error.
      */
@@ -517,7 +478,7 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Get the description of an existing Label
-     * 
+     *
      * @param labelName name of the label.
      * @return {@link LabelWithDetails}
      * @throws IOException in case of an error.
@@ -530,7 +491,7 @@ public class JenkinsServer implements Closeable {
      * Get a list of all the computers on the server (at the summary level)
      *
      * @return map of defined computers (summary level, for details @see
-     *         Computer#details
+     * Computer#details
      * @throws IOException in case of an error.
      */
     public Map<String, Computer> getComputers() throws IOException {
@@ -548,7 +509,7 @@ public class JenkinsServer implements Closeable {
      * The ComputerSet class will give informations like
      * {@link ComputerSet#getBusyExecutors()} or the
      * {@link ComputerSet#getTotalExecutors()}.
-     * 
+     *
      * @return {@link ComputerSet}
      * @throws IOException in case of an error.
      */
@@ -558,7 +519,7 @@ public class JenkinsServer implements Closeable {
 
     /**
      * This will give you back the {@link PluginManager}.
-     * 
+     *
      * @return {@link PluginManager}
      * @throws IOException in case of a failure.
      */
@@ -570,7 +531,7 @@ public class JenkinsServer implements Closeable {
      * Update the xml description of an existing view
      *
      * @param viewName name of the view.
-     * @param viewXml the view configuration.
+     * @param viewXml  the view configuration.
      * @throws IOException in case of an error.
      */
     public void updateView(String viewName, String viewXml) throws IOException {
@@ -580,7 +541,7 @@ public class JenkinsServer implements Closeable {
     public void updateView(String viewName, String viewXml, boolean crumbFlag) throws IOException {
         client.post_xml("/view/" + EncodingUtils.encode(viewName) + "/config.xml", viewXml, crumbFlag);
     }
-    
+
     public void updateView(FolderJob folder, String viewName, String viewXml) throws IOException {
         client.post_xml(UrlUtils.toBaseUrl(folder) + "view/" + EncodingUtils.encode(viewName) + "/config.xml", viewXml, true);
     }
@@ -593,7 +554,7 @@ public class JenkinsServer implements Closeable {
      * Update the xml description of an existing job
      *
      * @param jobName name of the job to be updated.
-     * @param jobXml the configuration to be used for updating.
+     * @param jobXml  the configuration to be used for updating.
      * @throws IOException in case of an error.
      */
     public void updateJob(String jobName, String jobXml) throws IOException {
@@ -603,8 +564,8 @@ public class JenkinsServer implements Closeable {
     /**
      * Update the xml description of an existing job
      *
-     * @param jobName name of the job to be updated.
-     * @param jobXml the configuration to be used for updating.
+     * @param jobName   name of the job to be updated.
+     * @param jobXml    the configuration to be used for updating.
      * @param crumbFlag true/false.
      * @throws IOException in case of an error.
      */
@@ -615,9 +576,9 @@ public class JenkinsServer implements Closeable {
     /**
      * Update the xml description of an existing job
      *
-     * @param folder the folder.
-     * @param jobName the name of the job.
-     * @param jobXml the job xml configuration.
+     * @param folder    the folder.
+     * @param jobName   the name of the job.
+     * @param jobXml    the job xml configuration.
      * @param crumbFlag true/false.
      * @throws IOException in case of an error.
      */
@@ -626,12 +587,12 @@ public class JenkinsServer implements Closeable {
     }
 
     /**
-     * @param jobName name of the job.
-     * @param name name of the parameter.
-     * @param description of the parameters.
+     * @param jobName      name of the job.
+     * @param name         name of the parameter.
+     * @param description  of the parameters.
      * @param defaultValue the defaultValue for the parameters.
-     * @throws IOException in case of an error.
-     * @throws JAXBException in case of an error.
+     * @throws IOException       in case of an error.
+     * @throws JAXBException     in case of an error.
      * @throws DocumentException in case of an error.
      */
     public void addStringParam(String jobName, String name, String description, String defaultValue)
@@ -644,21 +605,21 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Sends the Quiet Down (Prepare for shutdown) message
-     * 
+     *
      * @throws IOException in case of an error.
      */
     public void quietDown() throws IOException {
         try {
             client.get("/quietDown/");
-        } catch (org.apache.http.client.ClientProtocolException e) {
-            LOGGER.error("quietDown()", e);
+        } catch (UncheckedIOException e) {
+            LOGGER.error("quietDown()", e.getCause());
         }
 
     }
 
     /**
      * Cancels the Quiet Down (Prepare for shutdown) message
-     * 
+     *
      * @throws IOException in case of an error.
      */
     public void cancelQuietDown() throws IOException {
@@ -672,9 +633,8 @@ public class JenkinsServer implements Closeable {
     /**
      * Delete a job from Jenkins within a folder.
      *
-     * @param folder The folder where the given job is located.
+     * @param folder  The folder where the given job is located.
      * @param jobName The job which should be deleted.
-     *
      * @throws IOException in case of an error.
      */
     public void deleteJob(FolderJob folder, String jobName) throws IOException {
@@ -683,9 +643,9 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Delete a job from Jenkins within a folder.
-     * 
-     * @param folder The folder where the given job is located.
-     * @param jobName The job which should be deleted.
+     *
+     * @param folder    The folder where the given job is located.
+     * @param jobName   The job which should be deleted.
      * @param crumbFlag The crumbFlag
      * @throws IOException in case of problems.
      */
@@ -695,7 +655,7 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Delete a job from jenkins
-     * 
+     *
      * @param jobName The name of the job which should be deleted.
      * @throws IOException in case of an error.
      */
@@ -705,10 +665,10 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Delete a job from Jenkins.
-     * 
-     * @param jobName The name of the job to be deleted.
+     *
+     * @param jobName   The name of the job to be deleted.
      * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     *                  <code>false</code> otherwise.
      * @throws IOException In case of an failure.
      */
     public void deleteJob(String jobName, boolean crumbFlag) throws IOException {
@@ -717,7 +677,7 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Disable a job from jenkins
-     * 
+     *
      * @param jobName The name of the job which should be disabled.
      * @throws IOException in case of an error.
      */
@@ -728,9 +688,9 @@ public class JenkinsServer implements Closeable {
     /**
      * Disable a job from Jenkins.
      *
-     * @param jobName The name of the job to be deleted.
+     * @param jobName   The name of the job to be deleted.
      * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     *                  <code>false</code> otherwise.
      * @throws IOException In case of an failure.
      */
     public void disableJob(String jobName, boolean crumbFlag) throws IOException {
@@ -739,20 +699,20 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Enable a job from jenkins
-     * 
+     *
      * @param jobName name of the job which should be enabled.
      * @throws IOException In case of an failure.
      */
     public void enableJob(String jobName) throws IOException {
-        enableJob( jobName, false );
+        enableJob(jobName, false);
     }
 
     /**
      * Enable a job from Jenkins.
      *
-     * @param jobName The name of the job to be deleted.
+     * @param jobName   The name of the job to be deleted.
      * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     *                  <code>false</code> otherwise.
      * @throws IOException In case of an failure.
      */
     public void enableJob(String jobName, boolean crumbFlag) throws IOException {
@@ -761,9 +721,9 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Runs the provided groovy script on the server and returns the result.
-     *
+     * <p>
      * This is similar to running groovy scripts using the script console.
-     *
+     * <p>
      * In the instance where your script causes an exception, the server still
      * returns a 200 status, so detecting errors is very challenging. It is
      * recommended to use heuristics to check your return string for stack
@@ -779,17 +739,17 @@ public class JenkinsServer implements Closeable {
 
     /**
      * Runs the provided groovy script on the server and returns the result.
-     *
+     * <p>
      * This is similar to running groovy scripts using the script console.
-     *
+     * <p>
      * In the instance where your script causes an exception, the server still
      * returns a 200 status, so detecting errors is very challenging. It is
      * recommended to use heuristics to check your return string for stack
      * traces by detecting strings like "groovy.lang.(something)Exception".
      *
-     * @param script The script to run.
+     * @param script    The script to run.
      * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     *                  <code>false</code> otherwise.
      * @return results The results of the run of the script.
      * @throws IOException in case of an error.
      */
@@ -803,36 +763,22 @@ public class JenkinsServer implements Closeable {
     }
 
     public QueueItem getQueueItem(QueueReference ref) throws IOException {
-        try {
-            String url = ref.getQueueItemUrlPart();
-            // "/queue/item/" + id
-            QueueItem queueItem = client.get(url, QueueItem.class);
-            queueItem.setClient(client);
+        String url = ref.getQueueItemUrlPart();
+        // "/queue/item/" + id
+        QueueItem queueItem = client.get(url, QueueItem.class);
+        queueItem.setClient(client);
 
-            return queueItem;
-        } catch (HttpResponseException e) {
-            if (e.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-                return null;
-            }
-            throw e;
-        }
+        return queueItem;
     }
 
     public Build getBuild(QueueItem q) throws IOException {
         // http://ci.seitenbau.net/job/rainer-ansible-build/51/
-        try {
-            String url = q.getExecutable().getUrl();
-            // "/queue/item/" + id
-            Build job = client.get(url, Build.class);
-            job.setClient(client);
+        String url = q.getExecutable().getUrl();
+        // "/queue/item/" + id
+        Build job = client.get(url, Build.class);
+        job.setClient(client);
 
-            return job;
-        } catch (HttpResponseException e) {
-            if (e.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-                return null;
-            }
-            throw e;
-        }
+        return job;
     }
 
     /**
@@ -851,8 +797,8 @@ public class JenkinsServer implements Closeable {
      *
      * @param oldJobName existing job name.
      * @param newJobName The new job name.
-     * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     * @param crumbFlag  <code>true</code> to add <b>crumbIssuer</b>
+     *                   <code>false</code> otherwise.
      * @throws IOException In case of a failure.
      */
     public void renameJob(String oldJobName, String newJobName, Boolean crumbFlag) throws IOException {
@@ -862,7 +808,7 @@ public class JenkinsServer implements Closeable {
     /**
      * Rename a job
      *
-     * @param folder {@link FolderJob}
+     * @param folder     {@link FolderJob}
      * @param oldJobName existing job name.
      * @param newJobName The new job name.
      * @throws IOException In case of a failure.
@@ -874,22 +820,21 @@ public class JenkinsServer implements Closeable {
     /**
      * Rename a job
      *
-     * @param folder {@link FolderJob}
+     * @param folder     {@link FolderJob}
      * @param oldJobName existing job name.
      * @param newJobName The new job name.
-     * @param crumbFlag <code>true</code> to add <b>crumbIssuer</b>
-     *            <code>false</code> otherwise.
+     * @param crumbFlag  <code>true</code> to add <b>crumbIssuer</b>
+     *                   <code>false</code> otherwise.
      * @throws IOException In case of a failure.
      */
     public void renameJob(FolderJob folder, String oldJobName, String newJobName, Boolean crumbFlag)
             throws IOException {
-        client.post(UrlUtils.toJobBaseUrl(folder, oldJobName) 
-            + "/doRename?newName=" + EncodingUtils.encodeParam(newJobName),
-               crumbFlag);
+        client.post(UrlUtils.toJobBaseUrl(folder, oldJobName)
+                        + "/doRename?newName=" + EncodingUtils.encodeParam(newJobName),
+                crumbFlag);
     }
-    
-    
-    
+
+
     /**
      * Closes underlying resources.
      * Closed instances should no longer be used

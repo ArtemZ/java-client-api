@@ -59,7 +59,7 @@ public class JobWithDetails extends Job {
     private List<Job> downstreamProjects;
 
     private List<Job> upstreamProjects;
-    
+
     public String getDescription() {
         return description;
     }
@@ -82,14 +82,14 @@ public class JobWithDetails extends Job {
 
     /**
      * This method will give you back the builds of a particular job.
-     * 
+     * <p>
      * <b>Note: Jenkins limits the number of results to a maximum of 100 builds
      * which you will get back.</b>. In case you have more than 100 build you
      * won't get back all builds via this method. In such cases you need to use
      * {@link #getAllBuilds()}.
-     * 
+     *
      * @return the list of {@link Build}. In case of no builds have been
-     *         executed yet return {@link Collections#emptyList()}.
+     * executed yet return {@link Collections#emptyList()}.
      */
     public List<Build> getBuilds() {
         if (builds == null) {
@@ -112,44 +112,31 @@ public class JobWithDetails extends Job {
      * which can be later used to get supplemental information about a
      * particular build {@link Build#details()} to reduce the amount of data
      * which needed to be transfered.
-     * 
+     *
      * @return the list of {@link Build}. In case of no builds have been
-     *         executed yet return {@link Collections#emptyList()}.
+     * executed yet return {@link Collections#emptyList()}.
      * @throws IOException In case of failure.
      * @see <a href="https://issues.jenkins-ci.org/browse/JENKINS-30238">Jenkins
-     *      Issue</a>
+     * Issue</a>
      */
     public List<Build> getAllBuilds() throws IOException {
         String path = "/";
+        List<Build> builds = client.get(path + "job/" + EncodingUtils.encode(this.getName())
+                + "?tree=allBuilds[number[*],url[*],queueId[*]]", AllBuilds.class).getAllBuilds();
 
-        try {
-            List<Build> builds = client.get(path + "job/" + EncodingUtils.encode(this.getName())
-                    + "?tree=allBuilds[number[*],url[*],queueId[*]]", AllBuilds.class).getAllBuilds();
-
-            if (builds == null) {
-                return Collections.emptyList();
-            } else {
-                return transform(builds, new Function<Build, Build>() {
-                    @Override
-                    public Build apply(Build from) {
-                        return buildWithClient(from);
-                    }
-                });
-            }
-        } catch (HttpResponseException e) {
-            // TODO: Thinks about a better handling if the job does not exist?
-            if (e.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-                // TODO: Check this if this is necessary or a good idea?
-
-                return null;
-            }
-            throw e;
+        if (builds == null) {
+            return Collections.emptyList();
+        } else {
+            return transform(builds, new Function<Build, Build>() {
+                @Override
+                public Build apply(Build from) {
+                    return buildWithClient(from);
+                }
+            });
         }
-
     }
 
     /**
-     *
      * <ul>
      * <li>{M,N}: From the M-th element (inclusive) to the N-th element
      * (exclusive).</li>
@@ -158,41 +145,30 @@ public class JobWithDetails extends Job {
      * (exclusive). The same as {0,N}.</li>
      * <li>{N}: Just retrieve the N-th element. The same as {N,N+1}.</li>
      * </ul>
-     * 
+     * <p>
      * <b>Note: At the moment there seemed to be no option to get the number of
      * existing builds for a job. The only option is to get all builds via
      * {@link #getAllBuilds()}.</b>
-     * 
+     *
      * @param range {@link Range}
      * @return the list of {@link Build}. In case of no builds have been
-     *         executed yet return {@link Collections#emptyList()}.
+     * executed yet return {@link Collections#emptyList()}.
      * @throws IOException in case of an error.
      */
     public List<Build> getAllBuilds(Range range) throws IOException {
         String path = "/" + "job/" + EncodingUtils.encode(this.getName())
                 + "?tree=allBuilds[number[*],url[*],queueId[*]]";
+        List<Build> builds = client.get(path + range.getRangeString(), AllBuilds.class).getAllBuilds();
 
-        try {
-            List<Build> builds = client.get(path + range.getRangeString(), AllBuilds.class).getAllBuilds();
-
-            if (builds == null) {
-                return Collections.emptyList();
-            } else {
-                return transform(builds, new Function<Build, Build>() {
-                    @Override
-                    public Build apply(Build from) {
-                        return buildWithClient(from);
-                    }
-                });
-            }
-        } catch (HttpResponseException e) {
-            // TODO: Thinks about a better handline if the job does not exist?
-            if (e.getStatusCode() == HttpStatus.SC_NOT_FOUND) {
-                // TODO: Check this if this is necessary or a good idea?
-
-                return null;
-            }
-            throw e;
+        if (builds == null) {
+            return Collections.emptyList();
+        } else {
+            return transform(builds, new Function<Build, Build>() {
+                @Override
+                public Build apply(Build from) {
+                    return buildWithClient(from);
+                }
+            });
         }
     }
 
@@ -207,8 +183,8 @@ public class JobWithDetails extends Job {
 
     /**
      * @return the first build which has been executed or
-     *         {@link Build#BUILD_HAS_NEVER_RUN} if the build has never been
-     *         run.
+     * {@link Build#BUILD_HAS_NEVER_RUN} if the build has never been
+     * run.
      */
     public Build getFirstBuild() {
         if (firstBuild == null) {
@@ -220,9 +196,9 @@ public class JobWithDetails extends Job {
 
     /**
      * Check if the {@link #firstBuild} has been run or not.
-     * 
+     *
      * @return <code>true</code> if a build has been run <code>false</code>
-     *         otherwise.
+     * otherwise.
      */
     public boolean hasFirstBuildRun() {
         if (firstBuild == null) {
@@ -234,7 +210,7 @@ public class JobWithDetails extends Job {
 
     /**
      * @return The lastBuild. If {@link #lastBuild} has never been run
-     *         {@link Build#BUILD_HAS_NEVER_RUN} will be returned.
+     * {@link Build#BUILD_HAS_NEVER_RUN} will be returned.
      */
     public Build getLastBuild() {
         if (lastBuild == null) {
@@ -246,9 +222,9 @@ public class JobWithDetails extends Job {
 
     /**
      * Check if the {@link #lastBuild} has been run or not.
-     * 
+     *
      * @return <code>true</code> if the last build has been run
-     *         <code>false</code> otherwise.
+     * <code>false</code> otherwise.
      */
     public boolean hasLastBuildRun() {
         if (lastBuild == null) {
@@ -260,7 +236,7 @@ public class JobWithDetails extends Job {
 
     /**
      * @return The lastCompletedBuild. If {@link #lastCompletedBuild} has never
-     *         been run {@link Build#BUILD_HAS_NEVER_RUN} will be returned.
+     * been run {@link Build#BUILD_HAS_NEVER_RUN} will be returned.
      */
     public Build getLastCompletedBuild() {
         if (lastCompletedBuild == null) {
@@ -272,9 +248,9 @@ public class JobWithDetails extends Job {
 
     /**
      * Check if the {@link #lastCompletedBuild} has been run or not.
-     * 
+     *
      * @return <code>true</code> if the last completed build has been run
-     *         <code>false</code> otherwise.
+     * <code>false</code> otherwise.
      */
     public boolean hasLastCompletedBuildRun() {
         if (lastCompletedBuild == null) {
@@ -286,7 +262,7 @@ public class JobWithDetails extends Job {
 
     /**
      * @return The lastFailedBuild. If {@link #lastFailedBuild} has never been
-     *         run {@link Build#BUILD_HAS_NEVER_RUN} will be returned.
+     * run {@link Build#BUILD_HAS_NEVER_RUN} will be returned.
      */
     public Build getLastFailedBuild() {
         if (lastFailedBuild == null) {
@@ -298,9 +274,9 @@ public class JobWithDetails extends Job {
 
     /**
      * Check if the {@link #lastFailedBuild} has been run or not.
-     * 
+     *
      * @return <code>true</code> if the last failed build has been run
-     *         <code>false</code> otherwise.
+     * <code>false</code> otherwise.
      */
     public boolean hasLastFailedBuildRun() {
         if (lastFailedBuild == null) {
@@ -312,7 +288,7 @@ public class JobWithDetails extends Job {
 
     /**
      * @return The lastStableBuild. If {@link #lastStableBuild} has never been
-     *         run {@link Build#BUILD_HAS_NEVER_RUN} will be returned.
+     * run {@link Build#BUILD_HAS_NEVER_RUN} will be returned.
      */
     public Build getLastStableBuild() {
         if (lastStableBuild == null) {
@@ -324,9 +300,9 @@ public class JobWithDetails extends Job {
 
     /**
      * Check if the {@link #lastStableBuild} has been run or not.
-     * 
+     *
      * @return <code>true</code> if the last stable build has been run
-     *         <code>false</code> otherwise.
+     * <code>false</code> otherwise.
      */
     public boolean hasLastStableBuildRun() {
         if (lastStableBuild == null) {
@@ -338,8 +314,8 @@ public class JobWithDetails extends Job {
 
     /**
      * @return The lastSuccessfulBuild. If {@link #lastSuccessfulBuild} has
-     *         never been run {@link Build#BUILD_HAS_NEVER_RUN} will be
-     *         returned.
+     * never been run {@link Build#BUILD_HAS_NEVER_RUN} will be
+     * returned.
      */
     public Build getLastSuccessfulBuild() {
         if (lastSuccessfulBuild == null) {
@@ -351,9 +327,9 @@ public class JobWithDetails extends Job {
 
     /**
      * Check if the {@link #lastSuccessfulBuild} has been run or not.
-     * 
+     *
      * @return <code>true</code> if the last successful build has been run
-     *         <code>false</code> otherwise.
+     * <code>false</code> otherwise.
      */
     public boolean hasLastSuccessfulBuildRun() {
         if (lastSuccessfulBuild == null) {
@@ -365,7 +341,7 @@ public class JobWithDetails extends Job {
 
     /**
      * @return The lastUnstableBuild. If {@link #lastUnstableBuild} has never
-     *         been run {@link Build#BUILD_HAS_NEVER_RUN} will be returned.
+     * been run {@link Build#BUILD_HAS_NEVER_RUN} will be returned.
      */
     public Build getLastUnstableBuild() {
         if (lastUnstableBuild == null) {
@@ -377,9 +353,9 @@ public class JobWithDetails extends Job {
 
     /**
      * Check if the {@link #lastUnstableBuild} has been run or not.
-     * 
+     *
      * @return <code>true</code> if the last unstable build has been run
-     *         <code>false</code> otherwise.
+     * <code>false</code> otherwise.
      */
     public boolean hasLastUnstableBuildRun() {
         if (lastUnstableBuild == null) {
@@ -391,8 +367,8 @@ public class JobWithDetails extends Job {
 
     /**
      * @return The lastUnsuccessfulBuild. If {@link #lastUnsuccessfulBuild} has
-     *         never been run {@link Build#BUILD_HAS_NEVER_RUN} will be
-     *         returned.
+     * never been run {@link Build#BUILD_HAS_NEVER_RUN} will be
+     * returned.
      */
     public Build getLastUnsuccessfulBuild() {
         if (lastUnsuccessfulBuild == null) {
@@ -404,9 +380,9 @@ public class JobWithDetails extends Job {
 
     /**
      * Check if the {@link #lastUnsuccessfulBuild} has been run or not.
-     * 
+     *
      * @return <code>true</code> if the last unsuccessful build has been run
-     *         <code>false</code> otherwise.
+     * <code>false</code> otherwise.
      */
     public boolean hasLastUnsuccessfulBuildRun() {
         if (lastUnsuccessfulBuild == null) {
@@ -422,7 +398,7 @@ public class JobWithDetails extends Job {
 
     /**
      * @return the list of downstream projects. If no downstream projects exist
-     *         just return an empty list {@link Collections#emptyList()}.
+     * just return an empty list {@link Collections#emptyList()}.
      */
     public List<Job> getDownstreamProjects() {
         if (downstreamProjects == null) {
@@ -434,7 +410,7 @@ public class JobWithDetails extends Job {
 
     /**
      * @return the list of upstream projects. If no upstream projects exist just
-     *         return an empty list {@link Collections#emptyList()}.
+     * return an empty list {@link Collections#emptyList()}.
      */
     public List<Job> getUpstreamProjects() {
         if (upstreamProjects == null) {
@@ -450,10 +426,9 @@ public class JobWithDetails extends Job {
 
     /**
      * Get a build by the given buildNumber.
-     * 
+     *
      * @param buildNumber The number to select the build by.
      * @return The {@link Build} selected by the given buildnumber
-     * 
      */
     public Build getBuildByNumber(final int buildNumber) {
 
@@ -486,10 +461,10 @@ public class JobWithDetails extends Job {
 
     /**
      * Update the <code>description</code> of a Job.
-     * 
+     *
      * @param description The description which should be set. If you like to
-     *            set an empty description you should use
-     *            {@link #EMPTY_DESCRIPTION}.
+     *                    set an empty description you should use
+     *                    {@link #EMPTY_DESCRIPTION}.
      * @throws IOException in case of errors.
      */
     public void updateDescription(String description) throws IOException {
@@ -498,11 +473,11 @@ public class JobWithDetails extends Job {
 
     /**
      * Update the <code>description</code> of a Job.
-     * 
+     *
      * @param description The description which should be set. If you like to
-     *            set an empty description you should use
-     *            {@link #EMPTY_DESCRIPTION}.
-     * @param crumbFlag <code>true</code> or <code>false</code>.
+     *                    set an empty description you should use
+     *                    {@link #EMPTY_DESCRIPTION}.
+     * @param crumbFlag   <code>true</code> or <code>false</code>.
      * @throws IOException in case of errors.
      */
     public void updateDescription(String description, boolean crumbFlag) throws IOException {
@@ -513,7 +488,7 @@ public class JobWithDetails extends Job {
 
     /**
      * clear the description of a job.
-     * 
+     *
      * @throws IOException in case of errors.
      */
     public void clearDescription() throws IOException {
@@ -522,7 +497,7 @@ public class JobWithDetails extends Job {
 
     /**
      * clear the description of a job.
-     * 
+     *
      * @param crumbFlag <code>true</code> or <code>false</code>.
      * @throws IOException in case of errors.
      */

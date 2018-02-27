@@ -10,6 +10,8 @@ import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.offbytwo.jenkins.client.util.EncodingUtils;
 import com.offbytwo.jenkins.client.util.RequestReleasingInputStream;
+import com.offbytwo.jenkins.client.util.ResponseUtils;
+import com.offbytwo.jenkins.client.util.UrlUtils;
 import com.offbytwo.jenkins.client.validator.HttpResponseValidator;
 import com.offbytwo.jenkins.model.BaseModel;
 import com.offbytwo.jenkins.model.Crumb;
@@ -41,13 +43,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-import com.offbytwo.jenkins.client.util.ResponseUtils;
-import com.offbytwo.jenkins.client.util.UrlUtils;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 
 public class JenkinsHttpClient implements JenkinsHttpConnection {
@@ -137,16 +138,28 @@ public class JenkinsHttpClient implements JenkinsHttpConnection {
      * {@inheritDoc}
      */
     @Override
-    public <T extends BaseModel> T get(String path, Class<T> cls) throws IOException {
+    public <T extends BaseModel> T get(String path, Class<T> cls) {
         HttpGet getMethod = new HttpGet(UrlUtils.toJsonApiUri(uri, context, path));
 
-        HttpResponse response = client.execute(getMethod, localContext);
+        HttpResponse response;
+        try {
+            response = client.execute(getMethod, localContext);
+        } catch (IOException e){
+            throw new UncheckedIOException(e);
+        }
+
         jenkinsVersion = ResponseUtils.getJenkinsVersion(response);
         try {
             httpResponseValidator.validateResponse(response);
             return objectFromResponse(cls, response);
+        } catch (IOException e){
+            throw new UncheckedIOException(e);
         } finally {
-            EntityUtils.consume(response.getEntity());
+            try {
+                EntityUtils.consume(response.getEntity());
+            } catch (IOException e){
+                throw new UncheckedIOException(e);
+            }
             releaseConnection(getMethod);
         }
     }
@@ -155,48 +168,52 @@ public class JenkinsHttpClient implements JenkinsHttpConnection {
      * {@inheritDoc}
      */
     @Override
-    public String get(String path) throws IOException {
+    public String get(String path) {
         HttpGet getMethod = new HttpGet(UrlUtils.toJsonApiUri(uri, context, path));
-        HttpResponse response = client.execute(getMethod, localContext);
+        HttpResponse response;
+        try {
+            response = client.execute(getMethod, localContext);
+        } catch (IOException e){
+            throw new UncheckedIOException(e);
+        }
+
         jenkinsVersion = ResponseUtils.getJenkinsVersion(response);
         LOGGER.debug("get({}), version={}, responseCode={}", path, this.jenkinsVersion,
                 response.getStatusLine().getStatusCode());
         try {
             httpResponseValidator.validateResponse(response);
             return IOUtils.toString(response.getEntity().getContent());
+        } catch (IOException e){
+            throw new UncheckedIOException(e);
         } finally {
-            EntityUtils.consume(response.getEntity());
+            try {
+                EntityUtils.consume(response.getEntity());
+            } catch (IOException e){
+                throw new UncheckedIOException(e);
+            }
             releaseConnection(getMethod);
         }
 
     }
-
     /**
      * {@inheritDoc}
      */
     @Override
-    public <T extends BaseModel> T getQuietly(String path, Class<T> cls) {
-        T value;
-        try {
-            value = get(path, cls);
-            return value;
-        } catch (IOException e) {
-            LOGGER.debug("getQuietly({}, {})", path, cls.getName(), e);
-            // TODO: Is returing null a good idea?
-            return null;
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public InputStream getFile(URI path) throws IOException {
+    public InputStream getFile(URI path)  {
         HttpGet getMethod = new HttpGet(path);
-        HttpResponse response = client.execute(getMethod, localContext);
+        HttpResponse response;
+        try {
+            response = client.execute(getMethod, localContext);
+        } catch (IOException e){
+            throw new UncheckedIOException(e);
+        }
         jenkinsVersion = ResponseUtils.getJenkinsVersion(response);
-        httpResponseValidator.validateResponse(response);
-        return new RequestReleasingInputStream(response.getEntity().getContent(), getMethod);
+        try {
+            httpResponseValidator.validateResponse(response);
+            return new RequestReleasingInputStream(response.getEntity().getContent(), getMethod);
+        } catch (IOException e){
+            throw new UncheckedIOException(e);
+        }
     }
 
     /**
@@ -214,7 +231,7 @@ public class JenkinsHttpClient implements JenkinsHttpConnection {
     public <R extends BaseModel, D> R post(String path, D data, Class<R> cls, boolean crumbFlag) throws IOException {
         HttpPost request = new HttpPost(UrlUtils.toJsonApiUri(uri, context, path));
         if (crumbFlag == true) {
-            Crumb crumb = getQuietly("/crumbIssuer", Crumb.class);
+            Crumb crumb = get("/crumbIssuer", Crumb.class);
             if (crumb != null) {
                 request.addHeader(new BasicHeader(crumb.getCrumbRequestField(), crumb.getCrumb()));
             }
@@ -331,7 +348,7 @@ public class JenkinsHttpClient implements JenkinsHttpConnection {
     public String post_xml(String path, String xml_data, boolean crumbFlag) throws IOException {
         HttpPost request = new HttpPost(UrlUtils.toJsonApiUri(uri, context, path));
         if (crumbFlag == true) {
-            Crumb crumb = getQuietly("/crumbIssuer", Crumb.class);
+            Crumb crumb = get("/crumbIssuer", Crumb.class);
             if (crumb != null) {
                 request.addHeader(new BasicHeader(crumb.getCrumbRequestField(), crumb.getCrumb()));
             }

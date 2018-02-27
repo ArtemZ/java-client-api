@@ -7,6 +7,7 @@
 package com.offbytwo.jenkins.model;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 import org.apache.http.client.HttpResponseException;
 
@@ -140,8 +141,8 @@ public class Build extends BaseModel {
         try {
 
             return client.get(url + "stop");
-        } catch (IOException ex) {
-            if (((HttpResponseException) ex).getStatusCode() == 405) {
+        } catch (UncheckedIOException ex) {
+            if (((HttpResponseException) ex.getCause()).getStatusCode() == 405) {
                 stopPost();
                 return "";
             }
@@ -163,8 +164,8 @@ public class Build extends BaseModel {
         try {
 
             return client.get(url + "stop");
-        } catch (IOException ex) {
-            if (((HttpResponseException) ex).getStatusCode() == 405) {
+        } catch (UncheckedIOException ex) {
+            if (((HttpResponseException) ex.getCause()).getStatusCode() == 405) {
                 stopPost(crumbFlag);
                 return "";
             }

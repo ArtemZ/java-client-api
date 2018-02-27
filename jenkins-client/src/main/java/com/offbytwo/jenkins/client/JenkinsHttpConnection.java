@@ -38,9 +38,8 @@ public interface JenkinsHttpConnection extends Closeable {
      * @param cls class of the response
      * @param <T> type of the response
      * @return an instance of the supplied class
-     * @throws IOException in case of an error.
      */
-    <T extends BaseModel> T get(String path, Class<T> cls) throws IOException;
+    <T extends BaseModel> T get(String path, Class<T> cls);
 
     /**
      * Perform a GET request and parse the response and return a simple string
@@ -48,29 +47,16 @@ public interface JenkinsHttpConnection extends Closeable {
      *
      * @param path path to request, can be relative or absolute
      * @return the entity text
-     * @throws IOException in case of an error.
      */
-    String get(String path) throws IOException;
+    String get(String path);
 
     /**
      * Perform a GET request and return the response as InputStream
      *
      * @param path path to request, can be relative or absolute
      * @return the response stream
-     * @throws IOException in case of an error.
      */
-    InputStream getFile(URI path) throws IOException;
-
-    /**
-     * Perform a GET request and parse the response to the given class, logging
-     * any IOException that is thrown rather than propagating it.
-     *
-     * @param path path to request, can be relative or absolute
-     * @param cls class of the response
-     * @param <T> type of the response
-     * @return an instance of the supplied class
-     */
-    <T extends BaseModel> T getQuietly(String path, Class<T> cls);
+    InputStream getFile(URI path);
 
     /**
      * Check to see if the Jenkins version has been set to something different

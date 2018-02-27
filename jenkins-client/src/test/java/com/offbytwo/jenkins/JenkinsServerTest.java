@@ -14,6 +14,7 @@ import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
@@ -237,7 +238,7 @@ public class JenkinsServerTest extends BaseUnitTest {
     @Test
     public void testJenkinsConnectivityBroken() throws IOException {
         // given
-        given(client.get("/")).willThrow(IOException.class);
+        given(client.get("/")).willThrow(UncheckedIOException.class);
 
         // then
         assertEquals(server.isRunning(), false);
